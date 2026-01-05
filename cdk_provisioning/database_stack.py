@@ -2,11 +2,9 @@ from typing import List
 from aws_cdk import (
     Stack,
     
-	aws_iam as _iam,
 	aws_dynamodb as _dynamo,
 )
 from constructs import Construct
-import os
 
 class DatabaseStack(Stack):
     

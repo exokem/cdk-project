@@ -7,8 +7,6 @@ from aws_cdk import (
     aws_apigatewayv2 as _apigateway,
     aws_apigatewayv2_integrations as _integrations,
     aws_apigatewayv2_authorizers as _authorizers,
-    
-	aws_iam as _iam,
 )
 from constructs import Construct
 import os
