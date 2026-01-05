@@ -7,7 +7,7 @@ import aws_cdk as cdk
 from cdk_provisioning.server_stack import ServerStack
 # from cdk_provisioning.database_stack import DatabaseStack
 
-aws_env = cdk.Environment(account=os.getenv("AWS_ACCOUNT_ID"), region='us-east-2')
+aws_env = cdk.Environment(account=cdk.Aws.ACCOUNT_ID, region='us-east-2')
 
 app = cdk.App()
 # IAMStack(app, "IAMStack", env=aws_env)

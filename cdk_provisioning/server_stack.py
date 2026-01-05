@@ -110,16 +110,6 @@ class ServerStack(Stack):
 		))
 
 # API Auth
-		# api_access_role = _iam.Role(
-		# 	scope = self,
-		# 	id = "AmplifyApiAccessRole",
-		# 	assumed_by = _iam.ServicePrincipal("amplify.amazonaws.com"),
-
-		# 	managed_policies = [
-		# 		_iam.ManagedPolicy.from_aws_managed_policy_name("AmazonAPIGatewayInvokeFullAccess")
-		# 	]
-		# )
-
 		# for route in routes:
 		# 	# route.grant_invoke(_iam.AnyPrincipal())
 		# route.grant_invoke(api_access_role)

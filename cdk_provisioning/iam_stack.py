@@ -12,18 +12,20 @@ class IAMStack(Stack):
 		super().__init__(scope, construct_id, **kwargs)
 
 # Provision Amplify Access to API Gateway
-		# api_access_role = _iam.Role(
-		# 	scope = self,
-		# 	id = "AmplifyApiAccessRole",
-		# 	assumed_by = _iam.ServicePrincipal("amplify.amazonaws.com"),
+		api_access_role = _iam.Role(
+			scope = self,
+			id = "AmplifyApiAccessRole",
+			assumed_by = _iam.ServicePrincipal("amplify.amazonaws.com"),
 
-		# 	managed_policies = [
-		# 		_iam.ManagedPolicy.from_aws_managed_policy_name("AmazonAPIGatewayInvokeFullAccess")
-		# 	]
-		# )
+			managed_policies = [
+				_iam.ManagedPolicy.from_aws_managed_policy_name("AmazonAPIGatewayInvokeFullAccess")
+			]
+		)
+
+		self.amplify_api_access_arn = api_access_role.role_arn
 
 # Provision Lambda Access to DynamoDB
-		self.lambda_dynamo_access_role = _iam.Role(
+		lambda_dynamo_access_role = _iam.Role(
 			scope = self,
 			id = "LambdaDatabaseAccessRole",
 			assumed_by = _iam.ServicePrincipal("lambda.amazonaws.com"),
@@ -32,3 +34,5 @@ class IAMStack(Stack):
 				_iam.ManagedPolicy.from_aws_managed_policy_name("AmazonDynamoDBFullAccess_v2")
 			]
 		)
+
+		self.lambda_dynamo_access_arn = lambda_dynamo_access_role.role_arn
