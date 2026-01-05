@@ -2,11 +2,13 @@ from typing import List
 from aws_cdk import (
     Stack,
     
+	aws_dynamodb as _dynamo,
 	aws_lambda as _lambda,
 
     aws_apigatewayv2 as _apigateway,
     aws_apigatewayv2_integrations as _integrations,
     aws_apigatewayv2_authorizers as _authorizers,
+	aws_iam as _iam,
 )
 from constructs import Construct
 import os
@@ -16,9 +18,32 @@ class ServerStack(Stack):
 	def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
 		super().__init__(scope, construct_id, **kwargs)
 
+		table_name = "Stacks"
+
+### DYNAMODB ###
+
+		db = _dynamo.TableV2(
+			scope = self,
+			id = "StackReferenceTable",
+
+			table_name = table_name,
+			table_class = _dynamo.TableClass.STANDARD,
+
+			partition_key = _dynamo.Attribute(
+				name = "pk",
+				type = _dynamo.AttributeType.STRING,
+			)
+		)
+
 ### LAMBDA ###
 
-		stack_code = _lambda.Code.from_asset(os.path.join(os.path.dirname(__file__), "lambda/stack"))
+		stack_code = _lambda.Code.from_asset(
+			os.path.join(os.path.dirname(__file__), "lambda/stack")
+		)
+
+		lambda_env = {
+			"TABLE_NAME": table_name
+		}
 
 ### API GATEWAY ###
 
@@ -38,10 +63,8 @@ class ServerStack(Stack):
 			),
 
 			# Authorize with IAM
-			# default_authorizer = _authorizers.HttpIamAuthorizer(),
+			default_authorizer = _authorizers.HttpIamAuthorizer(),
 		)
-
-		routes: List[_apigateway.HttpRoute] = []
 
 # Create (Deploy) Stack
 		create_stack_lambda = _lambda.Function(
@@ -50,15 +73,18 @@ class ServerStack(Stack):
 
 			runtime = _lambda.Runtime.PYTHON_3_12,
 			handler = "handlers.create_stack",
-			code = stack_code
+			code = stack_code,
+			environment = lambda_env
 		)
 
-		routes.extend(api.add_routes(
+		db.grant(create_stack_lambda, "dynamodb:PutItem")
+
+		create_stack_routes = api.add_routes(
 			path = "/stack/{name}",
 			methods = [_apigateway.HttpMethod.POST],
 			integration = _integrations.HttpLambdaIntegration("CreateStackIntegration", create_stack_lambda),
-		))
-		
+		)
+
 # Read Stack
 		read_stack_lambda = _lambda.Function(
 			scope = self,
@@ -66,14 +92,17 @@ class ServerStack(Stack):
 
 			runtime = _lambda.Runtime.PYTHON_3_12,
 			handler = "handlers.read_stack",
-			code = stack_code
+			code = stack_code,
+			environment = lambda_env
 		)
 
-		routes.extend(api.add_routes(
+		db.grant(read_stack_lambda, "dynamodb:GetItem")
+
+		read_stack_routes = api.add_routes(
 			path = "/stack/{id}",
 			methods = [_apigateway.HttpMethod.GET],
 			integration = _integrations.HttpLambdaIntegration("ReadStackIntegration", read_stack_lambda),
-		))
+		)
 
 # Update (Redeploy) Stack
 		update_stack_lambda = _lambda.Function(
@@ -82,14 +111,17 @@ class ServerStack(Stack):
 
 			runtime = _lambda.Runtime.PYTHON_3_12,
 			handler = "handlers.update_stack",
-			code = stack_code
+			code = stack_code,
+			environment = lambda_env
 		)
+		
+		db.grant(update_stack_lambda, "dynamodb:UpdateItem")
 
-		routes.extend(api.add_routes(
+		update_stack_routes = api.add_routes(
 			path = "/stack/{id}",
 			methods = [_apigateway.HttpMethod.PATCH],
 			integration = _integrations.HttpLambdaIntegration("ReadStackIntegration", update_stack_lambda),
-		))
+		)
 
 # Destroy Stack
 		destroy_stack_lambda = _lambda.Function(
@@ -98,19 +130,17 @@ class ServerStack(Stack):
 
 			runtime = _lambda.Runtime.PYTHON_3_12,
 			handler = "handlers.destroy_stack",
-			code = stack_code
+			code = stack_code,
+			environment = lambda_env,
 		)
 
-		routes.extend(api.add_routes(
+		db.grant(destroy_stack_lambda, "dynamodb:DeleteItem")
+
+		destroy_stack_routes = api.add_routes(
 			path = "/stack/{id}",
 			methods = [_apigateway.HttpMethod.DELETE],
 			integration = _integrations.HttpLambdaIntegration("DestroyStackIntegration", destroy_stack_lambda),
-		))
-
-# API Auth
-		# for route in routes:
-		# 	# route.grant_invoke(_iam.AnyPrincipal())
-		# route.grant_invoke(api_access_role)
+		)
 
 # Publish API
 		_apigateway.HttpStage(
