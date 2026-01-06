@@ -1,14 +1,18 @@
 from typing import List
 from aws_cdk import (
     Stack,
+	RemovalPolicy,
     
 	aws_dynamodb as _dynamo,
 	aws_lambda as _lambda,
 
     aws_apigatewayv2 as _apigateway,
+    aws_apigateway as _apigateway_old,
     aws_apigatewayv2_integrations as _integrations,
     aws_apigatewayv2_authorizers as _authorizers,
 	aws_iam as _iam,
+
+	aws_logs as _logs,
 )
 from constructs import Construct
 import os
@@ -20,6 +24,16 @@ class ServerStack(Stack):
 
 		table_name = "Stacks"
 
+### CLOUDWATCH ###
+
+		log_group = _logs.LogGroup(
+			scope = self,
+			id = "ServerStackLogGroup",
+			retention=_logs.RetentionDays.ONE_DAY,
+
+			removal_policy = RemovalPolicy.DESTROY
+		)
+
 ### DYNAMODB ###
 
 		db = _dynamo.TableV2(
@@ -30,9 +44,12 @@ class ServerStack(Stack):
 			table_class = _dynamo.TableClass.STANDARD,
 
 			partition_key = _dynamo.Attribute(
-				name = "pk",
+				name = "stack",
 				type = _dynamo.AttributeType.STRING,
-			)
+			),
+
+			# Ensure database is destroyed (should not do this in production)
+			removal_policy = RemovalPolicy.DESTROY,
 		)
 
 ### LAMBDA ###
@@ -63,7 +80,7 @@ class ServerStack(Stack):
 			),
 
 			# Authorize with IAM
-			default_authorizer = _authorizers.HttpIamAuthorizer(),
+			# default_authorizer = _authorizers.HttpIamAuthorizer(),
 		)
 
 # Create (Deploy) Stack
@@ -74,15 +91,16 @@ class ServerStack(Stack):
 			runtime = _lambda.Runtime.PYTHON_3_12,
 			handler = "handlers.create_stack",
 			code = stack_code,
-			environment = lambda_env
+			environment = lambda_env,
+			log_group = log_group
 		)
 
-		db.grant(create_stack_lambda, "dynamodb:PutItem")
+		db.grant(create_stack_lambda, "dynamodb:PutItem", "dynamodb:GetItem")
 
 		create_stack_routes = api.add_routes(
-			path = "/stack/{name}",
+			path = "/stack",
 			methods = [_apigateway.HttpMethod.POST],
-			integration = _integrations.HttpLambdaIntegration("CreateStackIntegration", create_stack_lambda),
+			integration = _integrations.HttpLambdaIntegration("CreateStackIntegration", create_stack_lambda)
 		)
 
 # Read Stack
@@ -93,15 +111,16 @@ class ServerStack(Stack):
 			runtime = _lambda.Runtime.PYTHON_3_12,
 			handler = "handlers.read_stack",
 			code = stack_code,
-			environment = lambda_env
+			environment = lambda_env,
+			log_group = log_group
 		)
 
 		db.grant(read_stack_lambda, "dynamodb:GetItem")
 
 		read_stack_routes = api.add_routes(
-			path = "/stack/{id}",
+			path = "/stack/{name}",
 			methods = [_apigateway.HttpMethod.GET],
-			integration = _integrations.HttpLambdaIntegration("ReadStackIntegration", read_stack_lambda),
+			integration = _integrations.HttpLambdaIntegration("ReadStackIntegration", read_stack_lambda)
 		)
 
 # Update (Redeploy) Stack
@@ -112,15 +131,16 @@ class ServerStack(Stack):
 			runtime = _lambda.Runtime.PYTHON_3_12,
 			handler = "handlers.update_stack",
 			code = stack_code,
-			environment = lambda_env
+			environment = lambda_env,
+			log_group = log_group
 		)
 		
-		db.grant(update_stack_lambda, "dynamodb:UpdateItem")
+		db.grant(update_stack_lambda, "dynamodb:UpdateItem", "dynamodb:GetItem")
 
 		update_stack_routes = api.add_routes(
-			path = "/stack/{id}",
+			path = "/stack",
 			methods = [_apigateway.HttpMethod.PATCH],
-			integration = _integrations.HttpLambdaIntegration("ReadStackIntegration", update_stack_lambda),
+			integration = _integrations.HttpLambdaIntegration("ReadStackIntegration", update_stack_lambda)
 		)
 
 # Destroy Stack
@@ -132,21 +152,29 @@ class ServerStack(Stack):
 			handler = "handlers.destroy_stack",
 			code = stack_code,
 			environment = lambda_env,
+			log_group = log_group
 		)
 
-		db.grant(destroy_stack_lambda, "dynamodb:DeleteItem")
+		db.grant(destroy_stack_lambda, "dynamodb:DeleteItem", "dynamodb:GetItem")
 
 		destroy_stack_routes = api.add_routes(
-			path = "/stack/{id}",
+			path = "/stack/{name}",
 			methods = [_apigateway.HttpMethod.DELETE],
-			integration = _integrations.HttpLambdaIntegration("DestroyStackIntegration", destroy_stack_lambda),
+			integration = _integrations.HttpLambdaIntegration("DestroyStackIntegration", destroy_stack_lambda)
 		)
 
 # Publish API
-		_apigateway.HttpStage(
-			scope = self,
-			id = "MetaDeploymentGatewayMainStage",
-			stage_name = "dev",
+		# _apigateway.CfnStage(
+		# 	scope = self,
+		# 	id = "MetaDeploymentGatewayMainStage",
+		# 	stage_name = "dev",
 
-			http_api = api,
-		)
+		# 	api_id = api.api_id,
+
+		# 	access_log_settings = _apigateway.CfnStage.AccessLogSettingsProperty(
+		# 		destination_arn = log_group.log_group_arn,
+		# 		format = _apigateway_old.AccessLogFormat.clf().to_string()
+		# 	)
+		# )
+
+		
