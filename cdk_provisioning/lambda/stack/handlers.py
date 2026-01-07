@@ -12,6 +12,9 @@ table = db.Table(table_name)
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+events = boto3.client("events")
+
+
 def extract_body(event) -> dict:
     body = event.get("body")
 
@@ -43,7 +46,8 @@ def create_stack(event, context):
     )
 
     if check.get("Item") is not None:
-        logger.info(f"Skipping request to deploy stack '{stack}': The requested stack has already been deployed.")
+        logger.info(
+            f"Skipping request to deploy stack '{stack}': The requested stack has already been deployed.")
         return {
             "statusCode": 409,
             "body": "The requested stack has already been deployed."
@@ -60,8 +64,20 @@ def create_stack(event, context):
         }
     )
 
-    # TODO: eventbridge -- trigger deployment action
-    # TODO: after deployment completes, update state to "active"
+    events.put_events(
+        Entries=[
+            {
+                "Source": "handlers.create_stack",
+                "EventBusName": "AppEventBus",
+
+                                "Detail": json.dumps({
+                                    "stack": stack,
+                                    "state": "deploying"
+                                }),
+                "DetailType": "JSON"
+            }
+        ]
+    )
 
     return {
         'statusCode': 202,
@@ -69,13 +85,34 @@ def create_stack(event, context):
     }
 
 
+def set_stack_active(event, context):
+    detail = event.get("detail")
+
+    stack = detail.get("stack")
+
+    table.update_item(
+        Key={
+            "stack": stack
+        },
+        UpdateExpression="SET #s = :new_status, date_updated = :new_date_updated",
+        ExpressionAttributeNames={
+            "#s": "state"
+        },
+        ExpressionAttributeValues={
+            ":new_status": "active",
+            ":new_date_updated": str(datetime.datetime.now())
+        }
+    )
+
+
 def read_stack(event, context):
     params = extract_params(event)
-    
+
     stack = params.get("name")
 
     if stack is None:
-        logger.info(f"Skipping request to query stack '{stack}': The requested stack name is not valid.")
+        logger.info(
+            f"Skipping request to query stack '{stack}': The requested stack name is not valid.")
         return {
             "statusCode": 400,
             "body": "The request did not identify a valid stack."
@@ -153,11 +190,10 @@ def update_stack(event, context):
         "body": "Stack update initiated."
     }
 
-    
 
 def destroy_stack(event, context):
     params = extract_params(event)
-    
+
     stack = params.get("name")
 
     if stack is None:

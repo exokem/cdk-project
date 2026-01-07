@@ -13,13 +13,16 @@ from aws_cdk import (
 	aws_iam as _iam,
 
 	aws_logs as _logs,
+
+	aws_events as _events,
+	aws_events_targets as _targets,
 )
 from constructs import Construct
 import os
 
 class ServerStack(Stack):
     
-	def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+	def __init__(self, scope: Construct, construct_id: str, event_bus: _events.EventBus, **kwargs) -> None:
 		super().__init__(scope, construct_id, **kwargs)
 
 		table_name = "Stacks"
@@ -92,16 +95,41 @@ class ServerStack(Stack):
 			handler = "handlers.create_stack",
 			code = stack_code,
 			environment = lambda_env,
-			log_group = log_group
+			log_group = log_group,
 		)
 
 		db.grant(create_stack_lambda, "dynamodb:PutItem", "dynamodb:GetItem")
+		event_bus.grant_all_put_events(create_stack_lambda)
 
 		create_stack_routes = api.add_routes(
 			path = "/stack",
 			methods = [_apigateway.HttpMethod.POST],
 			integration = _integrations.HttpLambdaIntegration("CreateStackIntegration", create_stack_lambda)
 		)
+
+		set_stack_active_lambda = _lambda.Function(
+			scope = self,
+			id = "SetStackActiveFunction",
+
+			runtime = _lambda.Runtime.PYTHON_3_12,
+			handler = "handlers.set_stack_active",
+			code = stack_code,
+			environment = lambda_env,
+			log_group = log_group,
+		)
+
+		db.grant(set_stack_active_lambda, "dynamodb:UpdateItem")
+
+		mark_active_rule = _events.Rule(
+			scope = self,
+			id = "OnStackProvisionedRule",
+			event_bus = event_bus,
+			event_pattern = _events.EventPattern(
+				source=["provisioning.provision_stack"]
+			),
+		)
+
+		mark_active_rule.add_target(_targets.LambdaFunction(set_stack_active_lambda))
 
 # Read Stack
 		read_stack_lambda = _lambda.Function(
