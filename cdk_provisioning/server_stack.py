@@ -2,6 +2,7 @@ from typing import List
 from aws_cdk import (
     Stack,
 	RemovalPolicy,
+	Duration,
     
 	aws_dynamodb as _dynamo,
 	aws_lambda as _lambda,
@@ -72,12 +73,14 @@ class ServerStack(Stack):
 			id = "MetaDeploymentGateway",
 
 			cors_preflight = _apigateway.CorsPreflightOptions(
-				allow_headers = ["Authorization"],
+				allow_headers = ["Authorization", "Content-Type"],
+				max_age = Duration.days(1),
 				allow_methods = [
 					_apigateway.CorsHttpMethod.POST,
 					_apigateway.CorsHttpMethod.GET,
 					_apigateway.CorsHttpMethod.PATCH,
 					_apigateway.CorsHttpMethod.DELETE,
+					_apigateway.CorsHttpMethod.OPTIONS,
 				],
 				allow_origins = ["*"], # TBD -- restrict to amplify
 			),
@@ -85,6 +88,8 @@ class ServerStack(Stack):
 			# Authorize with IAM
 			# default_authorizer = _authorizers.HttpIamAuthorizer(),
 		)
+
+		self.api_url = api.url
 
 # Create (Deploy) Stack
 		create_stack_lambda = _lambda.Function(

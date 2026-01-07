@@ -6,6 +6,7 @@ import aws_cdk as cdk
 from cdk_provisioning.app_stack import AppStack
 from cdk_provisioning.server_stack import ServerStack
 from cdk_provisioning.provisioning_stack import ProvisioningStack
+from cdk_provisioning.client_stack import ClientStack
 
 aws_env = cdk.Environment(account=cdk.Aws.ACCOUNT_ID, region='us-east-2')
 
@@ -28,6 +29,13 @@ provisioning = ProvisioningStack(
 	scope = app,
 	construct_id = "ProvisioningStack",
 	event_bus = main.event_bus,
+	env = aws_env
+)
+
+client = ClientStack(
+	scope = app,
+	construct_id = "ClientStack",
+	api_url = server.api_url,
 	env = aws_env
 )
 

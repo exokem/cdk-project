@@ -3,13 +3,8 @@ from aws_cdk import (
     Stack,
 	RemovalPolicy,
     
-	aws_dynamodb as _dynamo,
 	aws_lambda as _lambda,
 
-    aws_apigatewayv2 as _apigateway,
-    aws_apigateway as _apigateway_old,
-    aws_apigatewayv2_integrations as _integrations,
-    aws_apigatewayv2_authorizers as _authorizers,
 	aws_iam as _iam,
 
 	aws_logs as _logs,

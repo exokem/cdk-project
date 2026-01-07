@@ -81,7 +81,9 @@ def create_stack(event, context):
 
     return {
         'statusCode': 202,
-        'body': "Stack deployment initiated."
+        'body': json.dumps({
+			"message": "Stack deployment initiated."
+		})
     }
 
 
@@ -187,7 +189,9 @@ def update_stack(event, context):
 
     return {
         "statusCode": 202,
-        "body": "Stack update initiated."
+        "body": json.dumps({
+			"message": "Stack update initiated."
+		})
     }
 
 
@@ -199,7 +203,9 @@ def destroy_stack(event, context):
     if stack is None:
         return {
             "statusCode": 400,
-            "body": "The request did not identify a valid stack."
+            "body": json.dumps({
+                "message": "The request did not identify a valid stack."
+			})
         }
 
     result = table.get_item(

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+		<title>Stack Deployer</title>
+	</head>
+	<body>
+		<h1>Stack Deployer Utility</h1>
+		<div>
+			<h2>Controls</h2>
+			<form id="form">
+				<label>
+					<span>Stack Name</span>
+					<input name="stack"/>
+				</label>
+				<label>
+					<span>Action</span>
+					<select name="action">
+						<option value="deploy">
+							Deploy
+						</option>
+						<option value="redeploy">
+							Redeploy
+						</option>
+						<option value="destroy">
+							Destroy
+						</option>
+						<option value="status">
+							Status
+						</option>
+					</select>
+				</label>
+				<input type="submit" value="Submit"/>
+			</form>
+		</div>
+		<div>
+			<h2>Output</h2>
+			<p id="output">No response</p>
+		</div>
+
+		<script>
+			// const apiUrl = "#API_URL#"
+			const apiUrl = "https://n73w19jjtj.execute-api.us-east-2.amazonaws.com"
+
+			const form = document.getElementById("form")
+
+			const output = document.getElementById("output")
+
+			form.addEventListener("submit", (event) => {
+				event.preventDefault()
+
+				const formData = new FormData(event.target)
+
+				const data = Object.fromEntries(formData.entries())
+
+				switch (data["action"])
+				{
+					case "deploy": {
+						fetch(`${apiUrl}/stack`, {
+							method: "POST",
+							headers: {
+								"Content-Type": "application/json" 
+							},
+							body: JSON.stringify({
+								"stack": data["stack"]
+							})
+						}).then(r => {
+							console.log(r)
+							return r.json()
+						}).then(data => {
+							console.log(data)
+							output.textContent = data["message"]
+						})
+
+						break
+					}
+
+					case "redeploy": {
+						fetch(`${apiUrl}/stack`, {
+							method: "PATCH",
+							headers: {
+								"Content-Type": "application/json" 
+							},
+							body: JSON.stringify({
+								"stack": data["stack"]
+							})
+						}).then(r => {
+							return r.json()
+						}).then(data => {
+							output.textContent = data["message"]
+						})
+
+						break
+					}
+
+					case "destroy": {
+						fetch(`${apiUrl}/stack/${data["stack"]}`, {
+							method: "DELETE",
+							headers: {
+								"Content-Type": "application/json" 
+							},
+						}).then(r => {
+							console.log(r)
+							return r.json()
+						}).then(data => {
+							console.log(data)
+							output.textContent = data["message"]
+						})
+
+						break
+					}
+
+					case "status": {
+						fetch(`${apiUrl}/stack/${data["stack"]}`, {
+							method: "GET",
+							headers: {
+								"Content-Type": "application/json" 
+							},
+						}).then(r => {
+							return r.json()
+						}).then(data => {
+							output.textContent = `State: ${data["state"]} (Updated ${data["date_updated"]})`
+						})
+
+						break
+					}
+				}
+			})
+		</script>
+	</body>
+</html>
